@@ -84,7 +84,7 @@ layout(local_size_x, local_size_y = 8 ) in;
 ```
 
 一行目にあるから気になりますがそのまま書いとけば良いです。
-速度が必要になった人は参考にどうぞ＞https://www.khronos.org/opengl/wiki/Compute_Shader
+GPUでさらに高速に動作させたい場合は、適切な設定を行うことで並列を効率よく使用できますので、必要な場合は参考にしてください、通常そのままで使っている方が非常に多いです。＞https://www.khronos.org/opengl/wiki/Compute_Shader
 
 ```
 uniform int uReset; 
