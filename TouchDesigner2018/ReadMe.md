@@ -123,7 +123,7 @@ ivec2 texIndexOut0 = textureIndex(index, uTDOutputInfo.res.z);
 | :--: | :--: | :---: |
 |  9   |  10  |  11   |
 |  6   |  7   |   8   |
-|  3   |  4   | **5** |
+|  3   |  4   | **（5）** |
 |  0   |  1   |   2   |
 
 ```
