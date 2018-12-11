@@ -6,7 +6,6 @@
 ## 確認した動作環境
 
 TouchDesigner 099 2018.26750 64Bit Windows 10、Macで動くかはわかりません。
-GPUが対応していないまたは搭載されていないPCでは動作が困難な場合があります。ShaderVersion 4.5を設定していますが下げても動くかもしれませんのでもしエラーが出る場合はTouchDesignerのGLSL TOPと MAT のシェーダバージョンを下げてみて下さい、それでも動かない場合はPCを変えてください。
 
 ## 実は無理にGLSL TOP使わなくても大丈夫
 
@@ -83,8 +82,7 @@ void main()
 layout(local_size_x, local_size_y = 8 ) in; 
 ```
 
-一行目にあるから気になりますがそのまま書いとけば良いです。
-GPUでさらに高速に動作させたい場合は、適切な設定を行うことで並列を効率よく使用できますので、必要な場合は参考にしてください、通常そのままで使っている方が非常に多いです。＞https://www.khronos.org/opengl/wiki/Compute_Shader
+一行目にあるから気になりますがそのまま書いておけば問題ないです、GLSLの処理速度が必要になった人は並列かを厳密にしていった方が良いですので、参考にURLを貼っておきますが理解できない場合は無理に読む必要はありません＞https://www.khronos.org/opengl/wiki/Compute_Shader
 
 ```
 uniform int uReset; 
@@ -119,7 +117,7 @@ ivec2 texIndexOut0 = textureIndex(index, uTDOutputInfo.res.z);
 
 関数から先ほど割り当てたユニークな番号と書き出す先の画像の横幅を使ってどの場所を使うのか決めています。
 
-3x4のサイズの画像に index が 5 の場合は、 5%3=2 3/5= floor(0.6) = 1なので 下記の表の画像の場所を選びます。一番上は太文字になるのでこうしましたが、意味は無いです。
+3x4のサイズの画像に index が 5 の場合は、 5%3=2 3/5= floor(0.6) = 1なので 下記の表の画像の場所を選びます。
 
 |      |      |       |
 | :--: | :--: | :---: |
@@ -144,7 +142,7 @@ vec4 targetPos = texelFetch(sTD2DInputs[1], ivec2(index,0), 0);
 ```
 
 目標となる座標を二番目に入力されている画像から取得します。
-ちなみにですが、全く同じポイントの並びのまま開始と目標がある必要は無いのでSOPのソートなどでポイントの順番を入れ替えてしまうといろんな方向から飛んでくるようになります。。
+ちなみにですが、全く同じ位置に開始と目標のポイントがある必要は無いのでSOPのソートなどを使ってランダムなんかにすると楽しい。
 
 	pos.x += (targetPos.x - pos.x)/128.0;
 	pos.y += (targetPos.y - pos.y)/64.0;
@@ -163,4 +161,80 @@ imageStore(sTDComputeOutputs[0], texIndexOut0, pos);
 
 最後にインスタンスに使う座標を上記の表と同じ位置に書き出します。
 
-途中？
+
+
+# 少し改造や変更をして遊びましょう
+
+## バラバラの最終ターゲットを目指す
+
+
+下記のように switch1 と transform2 の間に sort を入れてみて下さい。
+
+![1544488781264](1544488781264.png)
+
+![1544488818704](1544488818704.png)
+
+画像の場所に SOPのSortノードを追加します、ポイントをランダムにソートすることでターゲットとなる場所をランダムに変更します、こうするだけでバラバラに移動してくれるようになります。Seed の数値を変更してみてください、パーティクルがいろんな方向に移動します。
+
+## ターゲットで止まらずに無視して移動するようにする
+
+あまり使い道はありませんが、比較的簡単に可能ですので紹介です、よくある中心から広がって外にずっといどうするような絵が作れます。
+
+やることは2つ
+
+1. **事前に目標と開始位置で計算をしておく**
+2. **GLSLのプログラムを少し書き換える**
+
+1．**事前に目標と開始位置で計算をしておく**
+ターゲットの目標位置から最初の座標を引き算して方向を計算します。
+後のプログラムで計算結果のままだと距離まで含めているので normalize して 1.0 にします。 1.0にすると1ずつすすんでほしいなら1をかけ算すれば良いので楽です、5進めたいなら5をかけ算すれば良いですよね。
+
+![1544489670654](1544489670654.png)
+
+
+null_end CHOP の 前に math chop ノードを追加して Combine CHOPs を Subtract (引き算)にしてnull_start をつなぎます、変更しなくても問題ないのですが Match by を Channel Name にしておくことで CHOP の順番が変わった場合でも安心できます。
+
+![1544489519232](1544489519232.png)
+
+2．**GLSLのプログラムを少し書き換える**
+
+```
+layout (local_size_x = 8, local_size_y = 8) in;
+
+uniform int uReset;
+uniform vec2 uTimers;
+
+ivec2 textureIndex(int index, float dataResZ)
+{
+	return ivec2(index % int(dataResZ), floor(index / (float)dataResZ));
+}
+void main()
+{
+	int index = int(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x);
+
+	ivec2 texIndexOut0 = textureIndex(index, uTDOutputInfo.res.z);
+
+	vec4 pos = imageLoad(sTDComputeOutputs[0], texIndexOut0);
+	if( uReset == 1 ) {
+		pos.xyzw = texelFetch(sTD2DInputs[0], ivec2(index,0), 0).xyzw;
+	} 
+	vec4 targetPos = texelFetch(sTD2DInputs[1], ivec2(index,0), 0);
+
+	// 変更/追加
+	pos.xyz += normalize(targetPos.xyz) * 2.0; 
+
+	imageStore(sTDComputeOutputs[0], texIndexOut0, pos);
+}
+```
+
+```
+pos.xyz += normalize(targetPos.xyz) * 2.0; 
+```
+
+上記の式の部分が変更されました、 targetPos　を normalize して、2ずつ進むようにしています。
+進む方向の計算はすでにCHOPで行っているのでこのようになります。
+
+リセットボタンを押すたびに開始位置から目標位置方向へずっと移動するようになります。
+これに生存時間などの制限を入れるとよくあるパーティクルの小さな原型になります。
+
+また開始のSOPの transform1 ノードの scale などを大きくすると外から中心に向かうようなものになります。
