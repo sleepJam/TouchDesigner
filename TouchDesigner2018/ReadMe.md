@@ -52,7 +52,7 @@ uniform vec2 uTimers;
 
 ivec2 textureIndex(int index, float dataResZ)
 {
-	return ivec2(index % int(dataResZ), floor(index / (float)dataResZ));
+	return ivec2(index % int(dataResZ), floor(index / (float)dataResZ+0.5));
 }
 void main()
 {
@@ -118,7 +118,7 @@ ivec2 texIndexOut0 = textureIndex(index, uTDOutputInfo.res.z);
 
 関数から先ほど割り当てたユニークな番号と書き出す先の画像の横幅を使ってどの場所を使うのか決めています。
 
-3x4のサイズの画像に index が 5 の場合は、 5%3=2 3/5= floor(0.6) = 1なので 下記の表の画像の場所を選びます。
+3x4のサイズの画像に index が 5 の場合は、 5%3=2 3/5= floor(0.6+0.5) = 1 なので 下記の表の画像の場所を選びます。
 
 |      |      |       |
 | :--: | :--: | :---: |
