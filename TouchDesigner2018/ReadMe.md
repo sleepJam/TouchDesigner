@@ -100,7 +100,7 @@ uniform vec2 uTimers;
 ```
 ivec2 textureIndex(int index, float dataResZ)
 {
-	return ivec2(index % int(dataResZ), floor(index / (float)dataResZ));
+	return ivec2(index % int(dataResZ), floor(index / (float)dataResZ+0.5));
 }
 ```
 
